@@ -51,9 +51,9 @@ Formulario "Cargar normativas al RAG" ─> Leer documentos ─> Dividir en fragm
 | Persistencia | Data Table `prestaciones_validadas` | Registra los casos aprobados |
 | Derivación | Gmail + Google Sheets ("Derivaciones de SaludBOT") | Avisa al operador y deja el caso como `pendiente` |
 
-## 3. System Prompt
+## 3. Mensaje del sistema
 
-Texto completo configurado en el nodo **Agente de validación (RAG)** (Options > System Message):
+Texto configurado en el nodo *Agente de validación (RAG)* (*Opciones > Mensaje del Sistema*):
 
 ```text
 Actúa como el asistente virtual oficial de validación de recetas, órdenes médicas y atención a prestadores de salud en el área de discapacidad. Tu objetivo es guiar al profesional, verificar normativas de cobertura utilizando exclusivamente la base de conocimiento recuperada (RAG) y clasificar las solicitudes con estricto rigor administrativo.
