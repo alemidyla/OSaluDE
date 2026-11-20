@@ -1,0 +1,1460 @@
+{
+  "name": "Asistente de Salud RAG - Validación de Recetas",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "in:inbox -category:promotions -category:social",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "bd6db4ec-10de-4224-9802-11d7eb535886",
+      "name": "Correo institucional recibido",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        272,
+        384
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hQpvLRbG5SAcg2yI",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "canal",
+              "value": "email",
+              "type": "string"
+            },
+            {
+              "id": "e2",
+              "name": "remitente",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "e3",
+              "name": "destino",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "e4",
+              "name": "message_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "e5",
+              "name": "phone_number_id",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "e6",
+              "name": "mensaje",
+              "value": "={{ ($json.subject || \"\") + \" - \" + ($json.text || \"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3aa9a546-3620-4e21-a357-0d3ca1a2534e",
+      "name": "Normalizar correo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        672,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae CUIT y N° de afiliado y valida el dígito verificador del CUIT (módulo 11)\nconst PREFIJOS = ['20', '23', '24', '25', '26', '27', '30', '33', '34'];\nconst PESOS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];\nconst salida = [];\nconst entradas = $input.all();\nfor (let idx = 0; idx < entradas.length; idx++) {\n  const d = entradas[idx].json;\n  const texto = String(d.mensaje || '');\n  const m = texto.match(/\\b(\\d{2})[-. ]?(\\d{8})[-. ]?(\\d)\\b/);\n  let cuit = '';\n  let presente = false;\n  let valido = false;\n  if (m) {\n    presente = true;\n    cuit = m[1] + m[2] + m[3];\n    let suma = 0;\n    for (let i = 0; i < 10; i++) suma += Number(cuit[i]) * PESOS[i];\n    let dv = 11 - (suma % 11);\n    if (dv === 11) dv = 0;\n    valido = dv !== 10 && dv === Number(cuit[10]) && PREFIJOS.includes(m[1]);\n  }\n  const a = texto.match(/afiliad[oa][^0-9]{0,20}([0-9][0-9\\/-]{4,})/i);\n  salida.push({\n    json: {\n      ...d,\n      cuit_prestador: cuit,\n      cuit_presente: presente,\n      cuit_valido: valido,\n      numero_afiliado: a ? a[1] : '',\n    },\n    pairedItem: { item: idx },\n  });\n}\nreturn salida;"
+      },
+      "id": "53078b80-afe6-4f29-a7a2-0766ab038d4f",
+      "name": "Validar datos del prestador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.cuit_presente === true && $json.cuit_valido === false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3589950e-7616-4198-bbec-c14ccae4dbd1",
+      "name": "¿CUIT inválido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "canal",
+              "value": "={{ $json.canal }}",
+              "type": "string"
+            },
+            {
+              "id": "p2",
+              "name": "remitente",
+              "value": "={{ $json.remitente }}",
+              "type": "string"
+            },
+            {
+              "id": "p3",
+              "name": "destino",
+              "value": "={{ $json.destino }}",
+              "type": "string"
+            },
+            {
+              "id": "p4",
+              "name": "message_id",
+              "value": "={{ $json.message_id }}",
+              "type": "string"
+            },
+            {
+              "id": "p5",
+              "name": "phone_number_id",
+              "value": "={{ $json.phone_number_id }}",
+              "type": "string"
+            },
+            {
+              "id": "p6",
+              "name": "mensaje",
+              "value": "={{ $json.mensaje }}",
+              "type": "string"
+            },
+            {
+              "id": "p7",
+              "name": "cuit_prestador",
+              "value": "={{ $json.cuit_prestador || 'no informado' }}",
+              "type": "string"
+            },
+            {
+              "id": "p8",
+              "name": "numero_afiliado",
+              "value": "={{ $json.numero_afiliado || 'no informado' }}",
+              "type": "string"
+            },
+            {
+              "id": "p9",
+              "name": "decision",
+              "value": "DERIVAR",
+              "type": "string"
+            },
+            {
+              "id": "p10",
+              "name": "motivo",
+              "value": "={{ $json.decision ? \"El agente determinó que el caso requiere auditoría humana\" : ($json.cuit_presente === true && $json.cuit_valido === false ? \"CUIT del prestador inválido (dígito verificador incorrecto)\" : \"Falla o timeout en la consulta a la base de normativas (RAG): \" + ($json.error || \"respuesta vacía\")) }}",
+              "type": "string"
+            },
+            {
+              "id": "p11",
+              "name": "respuesta",
+              "value": "={{ $json.decision ? $json.respuesta : ($json.cuit_presente === true && $json.cuit_valido === false ? \"El CUIT informado no es válido. Por seguridad no registramos la solicitud. Su consulta fue derivada a un operador humano, que se comunicará a la brevedad.\" : \"En este momento no podemos consultar los manuales prestacionales. Su consulta fue derivada a un operador humano, que se comunicará a la brevedad.\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "77b9decd-1708-4826-a63e-875043ebe1c4",
+      "name": "Preparar derivación",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3216,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "elizethpaller@gmail.com",
+        "subject": "=Derivación {{ $json.canal }} - CUIT {{ $json.cuit_prestador }} - Afiliado {{ $json.numero_afiliado }}",
+        "emailType": "text",
+        "message": "=Caso derivado a auditoría humana.\n\nMotivo: {{ $json.motivo }}\nCanal: {{ $json.canal }}\nRemitente: {{ $json.remitente }}\nCUIT: {{ $json.cuit_prestador }}\nN° de afiliado: {{ $json.numero_afiliado }}\n\nMensaje original:\n{{ $json.mensaje }}\n\nRespuesta enviada al prestador:\n{{ $json.respuesta }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "140bde6e-a632-42c4-a317-4f9ccaa29345",
+      "name": "Notificar operador humano",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        16
+      ],
+      "webhookId": "9f3c135c-66fc-4f8b-9bb8-a0234e5e70b6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hQpvLRbG5SAcg2yI",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1qh4DWfDUUsu8Mrz183h4jXo61G4qkPEzw0xEpx5Wr2I"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1867610029",
+          "cachedResultName": "Derivaciones de SaludBOT"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fecha": "={{ $now.setZone(\"America/Argentina/Buenos_Aires\").toFormat(\"yyyy-MM-dd HH:mm\") }}",
+            "nombre": "={{ $json.remitente }}",
+            "matricula_o_cuit": "={{ $json.cuit_prestador }}",
+            "telefono": "={{ $json.canal === \"whatsapp\" ? $json.remitente : \"\" }}",
+            "motivo": "={{ $json.motivo }}",
+            "resumen": "={{ String($json.mensaje).slice(0, 500) }}",
+            "estado": "pendiente"
+          },
+          "schema": [
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "matricula_o_cuit",
+              "displayName": "matricula_o_cuit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telefono",
+              "displayName": "telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "motivo",
+              "displayName": "motivo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resumen",
+              "displayName": "resumen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f340a782-770d-4a93-a3c6-dd443d60d978",
+      "name": "Registrar derivación en planilla",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3600,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ZGvcQTfrFVKN3vnn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "k1",
+              "leftValue": "={{ $json.canal }}",
+              "rightValue": "whatsapp",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "abae25b6-8ec3-41ae-8242-d157ba66ca51",
+      "name": "¿Canal WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3504,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.respuesta }}",
+        "options": {}
+      },
+      "id": "4720e546-b51f-44c6-92f9-4db4847636fb",
+      "name": "Responder por WhatsApp (simulado)",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        3728,
+        736
+      ],
+      "webhookId": "c1514158-fc51-4a6e-aca4-1aa4089ad7c6"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $json.message_id }}",
+        "emailType": "text",
+        "message": "={{ $json.respuesta }}",
+        "options": {
+          "appendAttribution": false,
+          "replyToSenderOnly": true
+        }
+      },
+      "id": "f087a723-022f-45b2-a175-b3d4febc9143",
+      "name": "Responder por correo",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3728,
+        544
+      ],
+      "webhookId": "2375e73d-40ab-4d03-9da4-733a141b3e56",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hQpvLRbG5SAcg2yI",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('¿Canal WhatsApp?').item.json.message_id }}"
+      },
+      "id": "b591bb33-e586-460b-8ace-a49b9ada59b7",
+      "name": "Marcar correo como leído",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3952,
+        544
+      ],
+      "webhookId": "8366099b-23d6-44a4-897e-3b95a939a6a8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hQpvLRbG5SAcg2yI",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Canal: {{ $json.canal }}\nRemitente: {{ $json.remitente }}\nCUIT detectado: {{ $json.cuit_prestador || 'no informado' }}\nN° de afiliado detectado: {{ $json.numero_afiliado || 'no informado' }}\n\nMensaje del prestador:\n{{ $json.mensaje }}",
+        "options": {
+          "systemMessage": "Actúa como el asistente virtual oficial de validación de recetas, órdenes médicas y atención a prestadores de salud en el área de discapacidad. Tu objetivo es guiar al profesional, verificar normativas de cobertura utilizando exclusivamente la base de conocimiento recuperada (RAG) y clasificar las solicitudes con estricto rigor administrativo.\n\n[HERRAMIENTAS]\n- consultar_normativas: búsqueda vectorial sobre manuales de prácticas, vademécums y normativas prestacionales vigentes. Debes llamarla SIEMPRE antes de responder sobre coberturas, recetas, vademécum o validación de prácticas.\n\n[REGLAS Y RESTRICCIONES]\n- Utiliza estrictamente la información obtenida a través de la herramienta consultar_normativas para responder dudas sobre vademecums, normativas de recetas o validación de prácticas médicas.\n- PROTOCOLO PARA RESPUESTAS DESCONOCIDAS: Si la información no se encuentra en el contexto recuperado o en tus bases de datos, tienes prohibido inventar o especular. Debes responder textualmente: \"No dispongo de esa información en los manuales prestacionales vigentes. Por favor, indíqueme su CUIT y el número de afiliado para derivar su consulta a un operador humano.\"\n- Mantén un tono profesional, claro, empático y conciso, optimizado para canales de mensajería rápida como WhatsApp.\n- Evalúa el caso y determina si requiere derivación humana inmediata ante incongruencias normativas, recetas vencidas o datos incompletos.\n\n[FORMATO DE SALIDA OBLIGATORIO]\n- Redacta primero la respuesta para el prestador (máximo 900 caracteres).\n- En la ÚLTIMA línea escribe exactamente una de estas etiquetas:\n  DECISION: APROBADO  -> receta u orden completa, vigente, con CUIT y número de afiliado informados y cobertura confirmada por el contexto recuperado.\n  DECISION: RECHAZADO -> error de formato que el prestador puede corregir (indica qué debe corregir).\n  DECISION: DERIVAR   -> información no encontrada en los manuales, incongruencias normativas, recetas vencidas, datos incompletos o dudas médico-legales.\n- Si dudas entre dos decisiones, elige DERIVAR.",
+          "maxIterations": 5
+        }
+      },
+      "id": "ae928d38-c61f-4af0-b44b-a9aeda884223",
+      "name": "Agente de validación (RAG)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1792,
+        224
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "elizethpaller/OSaluDE:latest",
+        "options": {
+          "temperature": 0.1,
+          "numCtx": 8192
+        }
+      },
+      "id": "1311f8c0-8923-472c-9ed6-68149beccca7",
+      "name": "Ollama (Llama 3.1 local)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        464
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "G4cdXQjl0Nh4KcBy",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $input.item.json.canal + ':' + $input.item.json.remitente }}",
+        "contextWindowLength": 6
+      },
+      "id": "07a24088-7403-426a-8cf3-a7561e3188cd",
+      "name": "Memoria por remitente",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1872,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Busca fragmentos exactos en los manuales de prácticas, vademécums y normativas prestacionales vigentes del área de discapacidad. Úsala para validar coberturas, requisitos de recetas y órdenes médicas.",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "id",
+          "value": "normativas_salud"
+        },
+        "topK": 5
+      },
+      "id": "943944ef-05c0-4e04-89ff-03c62a30b5e6",
+      "name": "consultar_normativas",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.4,
+      "position": [
+        2000,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text"
+      },
+      "id": "23f736ca-f624-4466-9b3a-d8470df5d824",
+      "name": "Embeddings consulta (Ollama)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        672
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "G4cdXQjl0Nh4KcBy",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "30f93717-cdd6-44d9-b2ae-878617524d5e",
+      "name": "Unir contexto y respuesta",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2256,
+        368
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "360b1693-3743-46bf-806a-fb57a2c39ff8",
+      "name": "Datos del prestador",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r1",
+              "leftValue": "={{ Object.keys($json).includes(\"error\") || !$json.output || String($json.output).trim() === \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "274248e1-a787-40ae-a089-9a4cae96e479",
+      "name": "¿Falló la consulta RAG?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2480,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "canal",
+              "value": "={{ $json.canal }}",
+              "type": "string"
+            },
+            {
+              "id": "d2",
+              "name": "remitente",
+              "value": "={{ $json.remitente }}",
+              "type": "string"
+            },
+            {
+              "id": "d3",
+              "name": "destino",
+              "value": "={{ $json.destino }}",
+              "type": "string"
+            },
+            {
+              "id": "d4",
+              "name": "message_id",
+              "value": "={{ $json.message_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d5",
+              "name": "phone_number_id",
+              "value": "={{ $json.phone_number_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d6",
+              "name": "mensaje",
+              "value": "={{ $json.mensaje }}",
+              "type": "string"
+            },
+            {
+              "id": "d7",
+              "name": "cuit_prestador",
+              "value": "={{ $json.cuit_prestador }}",
+              "type": "string"
+            },
+            {
+              "id": "d8",
+              "name": "numero_afiliado",
+              "value": "={{ $json.numero_afiliado }}",
+              "type": "string"
+            },
+            {
+              "id": "d9",
+              "name": "decision",
+              "value": "={{ ((String($json.output).match(/DECISION:\\s*(APROBADO|RECHAZADO|DERIVAR)/i) || [])[1] || \"DERIVAR\").toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "d10",
+              "name": "respuesta",
+              "value": "={{ String($json.output).replace(/\\**DECISION:\\s*\\w+\\**/gi, \"\").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "950deee8-0995-4b6d-be52-50aa89a7ef75",
+      "name": "Interpretar decisión del agente",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2736,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "APROBADO",
+                    "id": "53b6267c-32d6-4530-af72-29ab942e6111"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Aprobado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "RECHAZADO",
+                    "id": "bc562e00-94c8-453a-a350-139b988806ed"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rechazado"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Derivar"
+        }
+      },
+      "id": "490ee78d-00d6-4578-9284-403bd685f0f4",
+      "name": "Ruta según decisión",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2960,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "QiepShMlUi5LXtP9",
+          "cachedResultName": "prestaciones_validadas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "canal": "={{ $json.canal }}",
+            "remitente": "={{ $json.remitente }}",
+            "cuit_prestador": "={{ $json.cuit_prestador }}",
+            "numero_afiliado": "={{ $json.numero_afiliado }}",
+            "mensaje_original": "={{ $json.mensaje }}",
+            "resolucion": "={{ $json.decision }}",
+            "respuesta_agente": "={{ $json.respuesta }}",
+            "procesado_en": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "canal",
+              "displayName": "canal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "remitente",
+              "displayName": "remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cuit_prestador",
+              "displayName": "cuit_prestador",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_afiliado",
+              "displayName": "numero_afiliado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensaje_original",
+              "displayName": "mensaje_original",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolucion",
+              "displayName": "resolucion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "respuesta_agente",
+              "displayName": "respuesta_agente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "procesado_en",
+              "displayName": "procesado_en",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2f8a5d9f-bb69-46ac-a7df-04429fa982d8",
+      "name": "Cargar en sistema institucional",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3216,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "id": "d9a8b8fb-441a-433a-a384-29added0c9b2",
+      "name": "Mensaje de WhatsApp (chat simulado)",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        272,
+        688
+      ],
+      "webhookId": "51436a5b-9108-4127-9f7c-242e90b6f789"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f1",
+              "leftValue": "={{ $json.chatInput }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f91f9004-ccef-4eb3-bbc4-baadd5cd30bb",
+      "name": "Solo mensajes de texto",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "canal",
+              "value": "whatsapp",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "remitente",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "w3",
+              "name": "destino",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "w4",
+              "name": "message_id",
+              "value": "={{ $execution.id }}",
+              "type": "string"
+            },
+            {
+              "id": "w5",
+              "name": "phone_number_id",
+              "value": "simulado",
+              "type": "string"
+            },
+            {
+              "id": "w6",
+              "name": "mensaje",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "709aa412-ea58-472d-b8e0-ea27ac558a5e",
+      "name": "Normalizar WhatsApp",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        784,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Carga de manuales y normativas prestacionales",
+        "formDescription": "Suba los manuales de prácticas, vademécums y normativas vigentes (PDF, DOCX o TXT) para indexarlos en la base de conocimiento del asistente.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Documentos normativos",
+              "fieldType": "file",
+              "fieldName": "documentos",
+              "acceptFileTypes": ".pdf,.docx,.txt",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "path": "cargar-normativas-salud"
+        }
+      },
+      "id": "2e6fb568-b6de-4843-86c7-ba2ae2ec1ceb",
+      "name": "Cargar normativas al RAG",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        272,
+        1024
+      ],
+      "webhookId": "7b444bb7-982d-4a90-a0fb-e267ecf674bc"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "id",
+          "value": "normativas_salud"
+        }
+      },
+      "id": "71253f21-5848-4581-b244-add7541f7106",
+      "name": "Indexar normativas",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.4,
+      "position": [
+        592,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text"
+      },
+      "id": "df69a6b5-bcb2-4510-bd87-f8da39bb23c9",
+      "name": "Embeddings ingesta (Ollama)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        560,
+        1392
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "G4cdXQjl0Nh4KcBy",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "id": "337aa72f-c41a-49e2-92b6-5f59524aa60e",
+      "name": "Leer documentos",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "b0f05605-610a-440f-aaa1-2daa11586889",
+      "name": "Dividir en fragmentos",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        768,
+        1600
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Correo institucional recibido": {
+      "main": [
+        [
+          {
+            "node": "Normalizar correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar correo": {
+      "main": [
+        [
+          {
+            "node": "Validar datos del prestador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar datos del prestador": {
+      "main": [
+        [
+          {
+            "node": "¿CUIT inválido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿CUIT inválido?": {
+      "main": [
+        [
+          {
+            "node": "Preparar derivación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agente de validación (RAG)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Datos del prestador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar derivación": {
+      "main": [
+        [
+          {
+            "node": "Notificar operador humano",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar derivación en planilla",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Canal WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Canal WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Responder por WhatsApp (simulado)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder por correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder por correo": {
+      "main": [
+        [
+          {
+            "node": "Marcar correo como leído",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente de validación (RAG)": {
+      "main": [
+        [
+          {
+            "node": "Unir contexto y respuesta",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Ollama (Llama 3.1 local)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente de validación (RAG)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria por remitente": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente de validación (RAG)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "consultar_normativas": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente de validación (RAG)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings consulta (Ollama)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "consultar_normativas",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unir contexto y respuesta": {
+      "main": [
+        [
+          {
+            "node": "¿Falló la consulta RAG?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos del prestador": {
+      "main": [
+        [
+          {
+            "node": "Unir contexto y respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Falló la consulta RAG?": {
+      "main": [
+        [
+          {
+            "node": "Preparar derivación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Interpretar decisión del agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar decisión del agente": {
+      "main": [
+        [
+          {
+            "node": "Ruta según decisión",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ruta según decisión": {
+      "main": [
+        [
+          {
+            "node": "Cargar en sistema institucional",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Canal WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Canal WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar derivación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje de WhatsApp (chat simulado)": {
+      "main": [
+        [
+          {
+            "node": "Solo mensajes de texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Solo mensajes de texto": {
+      "main": [
+        [
+          {
+            "node": "Normalizar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Validar datos del prestador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cargar normativas al RAG": {
+      "main": [
+        [
+          {
+            "node": "Indexar normativas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings ingesta (Ollama)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Indexar normativas",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer documentos": {
+      "ai_document": [
+        [
+          {
+            "node": "Indexar normativas",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dividir en fragmentos": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Leer documentos",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "4b574cd3-d6b0-4d87-ac90-f0ebdf663f6b",
+  "meta": {
+    "instanceId": "aed87e690c57d8bd169f1055b333ca7da2dc57bb759dfa957bfe0c532c62aa9a"
+  },
+  "nodeGroups": [
+    {
+      "id": "5298cd8e-0058-4a05-b63c-e955b5acc7d8",
+      "name": "Preparar WhatsApp",
+      "nodeIds": [
+        "f91f9004-ccef-4eb3-bbc4-baadd5cd30bb",
+        "709aa412-ea58-472d-b8e0-ea27ac558a5e"
+      ],
+      "description": "Toma cada mensaje del chat que simula WhatsApp, descarta los vacíos y lo lleva al formato común del asistente"
+    },
+    {
+      "id": "dadc97be-0990-46d9-82af-05e32b2364e5",
+      "name": "Validar prestador",
+      "nodeIds": [
+        "53078b80-afe6-4f29-a7a2-0766ab038d4f",
+        "3589950e-7616-4198-bbec-c14ccae4dbd1"
+      ],
+      "description": "Extrae CUIT y afiliado del mensaje; un CUIT con dígito verificador incorrecto se deriva sin pasar por la IA"
+    },
+    {
+      "id": "502b061f-2185-4ede-b3a8-b7b567389f33",
+      "name": "Resolver con normativas",
+      "nodeIds": [
+        "ae928d38-c61f-4af0-b44b-a9aeda884223",
+        "1311f8c0-8923-472c-9ed6-68149beccca7",
+        "07a24088-7403-426a-8cf3-a7561e3188cd",
+        "943944ef-05c0-4e04-89ff-03c62a30b5e6",
+        "23f736ca-f624-4466-9b3a-d8470df5d824"
+      ],
+      "description": "El asistente local consulta manuales y vademécums para validar la receta u orden del prestador"
+    },
+    {
+      "id": "53777d38-f9f0-4a82-9e88-0790cea1df50",
+      "name": "Revisar respuesta",
+      "nodeIds": [
+        "30f93717-cdd6-44d9-b2ae-878617524d5e",
+        "274248e1-a787-40ae-a089-9a4cae96e479"
+      ],
+      "description": "Reúne la respuesta con los datos del prestador; si la búsqueda falló o no respondió, se toma la ruta de respaldo"
+    },
+    {
+      "id": "ba7ebe62-58bc-4d28-aff3-a95df7ab7a3e",
+      "name": "Clasificar resolución",
+      "nodeIds": [
+        "950deee8-0995-4b6d-be52-50aa89a7ef75",
+        "490ee78d-00d6-4578-9284-403bd685f0f4"
+      ],
+      "description": "Lee la etiqueta final del asistente (aprobado, rechazado o derivar); sin etiqueta clara, el caso se deriva"
+    },
+    {
+      "id": "fe4dc07f-9c20-4e37-ad83-387b8ab4cde8",
+      "name": "Responder al prestador",
+      "nodeIds": [
+        "abae25b6-8ec3-41ae-8242-d157ba66ca51",
+        "4720e546-b51f-44c6-92f9-4db4847636fb",
+        "f087a723-022f-45b2-a175-b3d4febc9143",
+        "b591bb33-e586-460b-8ace-a49b9ada59b7"
+      ],
+      "description": "Contesta por el mismo canal de origen (chat simulado o correo); los correos atendidos se marcan como leídos para no repetirse"
+    },
+    {
+      "id": "a4aa24fd-8d29-4055-9545-f62cc32dd96e",
+      "name": "Indexar normativas",
+      "nodeIds": [
+        "71253f21-5848-4581-b244-add7541f7106",
+        "df69a6b5-bcb2-4510-bd87-f8da39bb23c9",
+        "337aa72f-c41a-49e2-92b6-5f59524aa60e",
+        "b0f05605-610a-440f-aaa1-2daa11586889"
+      ],
+      "description": "Cada archivo subido al formulario se divide en fragmentos y se guarda en la base vectorial del asistente"
+    }
+  ],
+  "id": "D3koGqLvBiIYMVmu",
+  "tags": []
+}
