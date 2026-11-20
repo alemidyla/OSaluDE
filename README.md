@@ -108,12 +108,12 @@ Actúa como el asistente virtual oficial de validación de recetas, órdenes mé
 
 ### Canvas completo
 
-<img width="1706" height="770" alt="image" src="https://github.com/user-attachments/assets/fcbb86d9-bce8-4f2f-9a70-48084c4a6e79" />
+![Canvas completo del flujo de trabajo en n8n](capturas/canvas-completo.png)
 
 
 ### Ejecución exitosa con RAG
 
-<img width="1877" height="789" alt="image" src="https://github.com/user-attachments/assets/8d634c91-a48f-4e27-ae25-3057e8e80332" />
+![Ejecución exitosa consultando normativas con RAG](capturas/ejecucion-rag-exitosa.png)
 
 Caso de prueba: se cargó un manual prestacional desde el formulario y se envió por el chat una orden con CUIT válido y número de afiliado. El agente consultó `consultar_normativas`, citó el fragmento recuperado y emitió la decisión.
 
