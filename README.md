@@ -109,4 +109,4 @@ La lógica propia del flujo sí se ejecutó con datos reales de entrada: normali
 o automatizado: Recepción, validación semántica y carga en sistemas institucionales de recetas médicas, órdenes de prácticas y documentación de prestadores de salud (discapacidad) ingresadas a través de canales digitales (correo electrónico institucional y WhatsApp Business).
 
 <img width="1314" height="412" alt="image" src="https://github.com/user-attachments/assets/ae6400d2-d67d-4b3f-aee4-377209655055" />
-´´´
+
